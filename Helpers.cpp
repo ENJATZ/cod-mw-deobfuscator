@@ -258,13 +258,13 @@ void Helpers::PrintSwitch(QWORD currentRIP)
 		case ZYDIS_MNEMONIC_MOV:
 			if (instruction.operandCount >= 2 && instruction.operands[1].mem.segment == ZYDIS_REGISTER_GS)
 			{
-				pebstring = "Application::game->pebIndex;\n";
+				pebstring = "Application::game->peb";
 				pebFound = true;
 			}
 			break;
 		case ZYDIS_MNEMONIC_NOT:
 			if (pebFound)
-				pebstring = "~Application::game->pebIndex;\n";
+				pebstring = "~Application::game->peb";
 			break;
 		case ZYDIS_MNEMONIC_ROR:
 			if(pebFound)
@@ -298,7 +298,7 @@ void Helpers::PrintPEB(QWORD currentRIP, ZydisRegister& pebRegister)
 		if (instruction.mnemonic == ZYDIS_MNEMONIC_MOV && instruction.operands[1].mem.segment == ZYDIS_REGISTER_GS)
 		{
 			pebRegister = instruction.operands[0].reg.value;
-			printf("\033[0;32m%s %s", ZydisRegisterGetString(instruction.operands[0].reg.value), "= Application::game->pebIndex;\n");
+			printf("\033[0;32m%s %s", ZydisRegisterGetString(instruction.operands[0].reg.value), "= Application::game->peb;\n");
 			found = true;
 			continue;
 		}
@@ -312,7 +312,7 @@ void Helpers::PrintPEB(QWORD currentRIP, ZydisRegister& pebRegister)
 			printf("\033[0;32m%s = ~%s;\n", ZydisRegisterGetString(instruction.operands[0].reg.value), ZydisRegisterGetString(instruction.operands[0].reg.value));
 	}
 }
-void Helpers::PrintContext(QWORD currentRIP, ZydisRegister RequestedRegister, ZydisRegister EndRegister, bool PrintReturn)
+void Helpers::PrintContext(QWORD currentRIP, ZydisRegister RequestedRegister, ZydisMnemonic EndRegister, bool PrintReturn)
 {
 	CONTEXT c = GetContext();
 	CONTEXT aux_c = c;
@@ -321,8 +321,15 @@ void Helpers::PrintContext(QWORD currentRIP, ZydisRegister RequestedRegister, Zy
 	c.Rip = currentRIP;
 	SetContext(&c);
 	bool retval = false;
+	int steps = 0;
+
 	while (!retval)
 	{
+		steps++;
+		/*if (steps > 20) {
+			std::cout << "\n out for " << ZydisRegisterGetString(RequestedRegister) << "\n";
+			break;
+		}*/
 		SingleStep();
 
 		if (bExcept)
@@ -337,4 +344,25 @@ void Helpers::PrintContext(QWORD currentRIP, ZydisRegister RequestedRegister, Zy
 	}
 	SetContext(&aux_c);
 	ClearRegisterDecryption();
+}
+void Helpers::PrintInterVar(QWORD currentRIP, ZydisRegister& pebRegister)
+{
+	ZydisDecodedInstruction instruction;
+	bool found = false;
+	int i = 0;
+	while (!found && i < 15)
+	{
+		instruction = Decode(currentRIP);
+		currentRIP += instruction.length;
+		std::cout << "\n reg: " << ZydisMnemonicGetString(instruction.mnemonic);
+		if (instruction.mnemonic == ZYDIS_MNEMONIC_MOV && instruction.operands[1].mem.segment == ZYDIS_REGISTER_CS)
+		{
+			pebRegister = instruction.operands[0].reg.value;
+			printf("\033[0;32m%s = *(uint64_t*)Application::BaseAddress + %s", ZydisRegisterGetString(instruction.operands[0].reg.value), 
+				(currentRIP + instruction.operands[1].mem.disp.value + instruction.length) - procBase);
+			found = true;
+			continue;
+		}
+		i++;
+	}
 }

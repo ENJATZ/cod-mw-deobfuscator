@@ -69,18 +69,15 @@ bool NewRegisterDecryption(ZydisRegister EncryptedPointer, ZydisMnemonic EndMnem
 			ZydisFormatterFormatInstruction(&formatter, &instruction, buffer, sizeof(buffer));
 			puts(buffer);
 		}
-		/*
-		if (!PrintReturn) {
-			char buffer[256];
-			ZydisFormatterFormatInstruction(&formatter, &instruction, buffer, sizeof(buffer));
-			puts(buffer);
-			std::cout << "\n(debug print): " << buffer;
-		}*/
 		CurrentInstructionLength = instruction.length;
 
 		//End Decryption
+		//std::cout << "\ncurrent mnemonic: " << ZydisMnemonicGetString(instruction.mnemonic);
+		//std::cout << " - end mnemonic: " << ZydisMnemonicGetString(EndMnemonic) << "\n";
+
 		if (instruction.mnemonic == EndMnemonic || line == 200)
 		{
+			//std::cout << "\ended with mnemonic: " << ZydisMnemonicGetString(instruction.mnemonic);
 			//Find last Tracking Register
 			for (int i = 0; i < line; i++)
 			{
@@ -120,10 +117,12 @@ bool NewRegisterDecryption(ZydisRegister EncryptedPointer, ZydisMnemonic EndMnem
 					{
 						string test = ZydisRegisterGetString(regTracer[i].userRegisters[0]);
 						string test2 = ZydisRegisterGetString(trackingRegister);
+						//for (int j = 0; j < regTracer[i].userRegisters.size(); j++)
+							//std::cout << "\n> reg  " << j << ": " << ZydisRegisterGetString(regTracer[i].userRegisters[j]);
 					}
 
 					//Assign new tracking register
-					if (regTracer[i].userRegisters.size() >= 2 && EncryptedPointer == regTracer[i].userRegisters[0])
+					if (regTracer[i].userRegisters.size() >= 1 && EncryptedPointer == regTracer[i].userRegisters[0])
 					{
 						for (int j = 0; j < regTracer[i].userRegisters.size(); j++)
 						{
@@ -134,7 +133,7 @@ bool NewRegisterDecryption(ZydisRegister EncryptedPointer, ZydisMnemonic EndMnem
 								allowedregisters.push_back(regTracer[i].userRegisters[j]);
 						}
 					}
-					else if (regTracer[i].userRegisters.size() >= 2 && std::find(allowedregisters.begin(), allowedregisters.end(), regTracer[i].userRegisters[0]) != allowedregisters.end())
+					else if (regTracer[i].userRegisters.size() >= 1 && std::find(allowedregisters.begin(), allowedregisters.end(), regTracer[i].userRegisters[0]) != allowedregisters.end())
 					{
 						for (int j = 0; j < regTracer[i].userRegisters.size(); j++)
 						{
@@ -143,6 +142,19 @@ bool NewRegisterDecryption(ZydisRegister EncryptedPointer, ZydisMnemonic EndMnem
 							}
 							else
 								allowedregisters.push_back(regTracer[i].userRegisters[j]);
+						}
+					}
+					else if (regTracer[i].userRegisters.size() > 1) {
+						if (regTracer[i].userRegisters.size() >= 1 && std::find(allowedregisters.begin(), allowedregisters.end(), regTracer[i].userRegisters[1]) != allowedregisters.end())
+						{
+							for (int j = 0; j < regTracer[i].userRegisters.size(); j++)
+							{
+								if (std::find(allowedregisters.begin(), allowedregisters.end(), regTracer[i].userRegisters[j]) != allowedregisters.end())
+								{
+								}
+								else
+									allowedregisters.push_back(regTracer[i].userRegisters[j]);
+							}
 						}
 					}
 
@@ -230,6 +242,12 @@ bool NewRegisterDecryption(ZydisRegister EncryptedPointer, ZydisMnemonic EndMnem
 			else if (instruction.operandCount >= 2 && instruction.operands[1].mem.segment == ZYDIS_REGISTER_GS)
 			{
 				ss << regTracer[line].GetZydisRegisterString(r1, line, instruction) << " = " << "Application::game->pebIndex";
+			}
+			// MOV, CS:
+			else if (instruction.operandCount >= 1 && instruction.operands[1].mem.segment == ZYDIS_REGISTER_CS)
+			{
+				//std::cout << "\n" << regTracer[line].GetZydisRegisterString(r1, line, instruction) << " = " << "*(uint64_t*)(Application::BaseAddress + 0x" << hex << uppercase << (c.Rip + instruction.operands[1].mem.disp.value + instruction.length) - procBase << ")";
+				ss << regTracer[line].GetZydisRegisterString(r1, line, instruction) << " = " << "*(uint64_t*)(Application::BaseAddress + 0x" << hex << uppercase << (c.Rip + instruction.operands[1].mem.disp.value + instruction.length) - procBase << ")";
 			}
 			// LEA   RAX,[RAX + RCX*0x2]
 			else if (instruction.operandCount >= 2 && instruction.operands[1].mem.base != 0 && instruction.operands[1].mem.index != 0 && instruction.operands[1].mem.scale != 0)
@@ -458,6 +476,7 @@ bool NewRegisterDecryption(ZydisRegister EncryptedPointer, ZydisMnemonic EndMnem
 			line++;
 		}
 	}
+
 	return false;
 }
 
@@ -617,15 +636,22 @@ void GetBone()
 	ZydisRegister peb = NULL;
 	QWORD ADDScan = 0;
 	QWORD CMPScan = 0;
-
+	std::cout << "\nuint64_t rax = Application::BaseAddress, rbx = Application::BaseAddress, rcx = Application::BaseAddress, rdx = Application::BaseAddress, r8 = Application::BaseAddress, rdi = Application::BaseAddress, r9 = Application::BaseAddress, r10 = Application::BaseAddress, r11 = Application::BaseAddress, r12 = Application::BaseAddress, r13 = Application::BaseAddress, r14 = Application::BaseAddress, r15 = Application::BaseAddress, rsi = Application::BaseAddress, rsp = Application::BaseAddress, rbp = Application::BaseAddress;\n";
 	//Find Starting Point of Decryption
 	QWORD BoneScan = procBase + Helpers::DoScan("0F BF B4 ? ? ? ? ? 89 ? 24 ? 85 ?");
-
-	Helpers::PrintSwitch(BoneScan);
+	//Helpers::PrintSwitch(BoneScan);
 	Helpers::PrintPEB(BoneScan, peb);
+
+	// We are now on JZ instruction
+	BoneScan = Helpers::FindInstruction(ZYDIS_MNEMONIC_JZ, BoneScan);
+
+	//Helpers::PrintInterVar(BoneScan, peb);
+	Helpers::PrintContext(BoneScan, ZYDIS_REGISTER_R8, ZYDIS_MNEMONIC_TEST, false);
 	BoneScan = Helpers::SkipOverInstruction(ZYDIS_MNEMONIC_JZ, BoneScan);
-	BoneScan = Helpers::SkipOverInstruction(ZYDIS_MNEMONIC_JZ, BoneScan);
-	BoneScan = Helpers::FindInstruction(ZYDIS_MNEMONIC_AND, BoneScan);
+	BoneScan = Helpers::FindInstruction(ZYDIS_MNEMONIC_JZ, BoneScan);
+	Helpers::PrintContext(BoneScan, ZYDIS_REGISTER_RAX, ZYDIS_MNEMONIC_CMP, false);
+	//BoneScan = Helpers::FindInstruction(ZYDIS_MNEMONIC_AND, BoneScan);
+	std::cout << "\nswitch(rax)\n{";
 
 	c = GetContext();
 

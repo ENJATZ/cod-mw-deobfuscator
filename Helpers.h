@@ -11,7 +11,8 @@ class Helpers
 public:
 	static DWORD DoScan(std::string pattern, DWORD offset = 0, DWORD base_offset = 0, DWORD pre_base_offset = 0, DWORD rIndex = 0);
 	static void PrintPEB(QWORD currentRIP, ZydisRegister& pebRegister);
-	static void PrintContext(QWORD currentRIP, ZydisRegister RequestedRegister, ZydisRegister EndRegister, bool PrintReturn);
+	static void PrintContext(QWORD currentRIP, ZydisRegister RequestedRegister, ZydisMnemonic EndRegister, bool PrintReturn);
+	static void PrintInterVar(QWORD currentRIP, ZydisRegister& pebRegister);
 	static void PrintSwitch(QWORD currentRIP);
 	static QWORD FindInstruction(ZydisMnemonic instructionMnemonic, QWORD currentRIP);
 	static QWORD SkipOverInstruction(ZydisMnemonic instructionMnemonic, QWORD currentRIP);
