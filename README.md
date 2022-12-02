@@ -6,5 +6,8 @@ It uses [Zydis](https://github.com/zyantific/zydis) in order to read registers a
 - Locate the **.exe** file, the program will start it and supend right after to avoid detection.
 - Select a dump of the game executable (can be dumped with **Scylla**).
 
+## Screenshot
+![Screenshot 1](/screenshot_one.PNG?raw=true)
+
 ## Disclaimer
 This repository is for research and learning purposes only, it is not meant to create any exploit within the game.
